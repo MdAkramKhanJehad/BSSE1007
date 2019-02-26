@@ -1,0 +1,15 @@
+
+https://community.cisco.com/t5/other-network-architecture/ip-header-ihl-field-what-is-the-maximum-ip-header-length/td-p/197444
+
+
+https://www.freesoft.org/CIE/Course/Section4/8.htm
+
+https://github.com/TheSidhesh/Packet-Parser/blob/master/PacketParser.c
+
+
+https://www.gatevidyalay.com/ipv4-ipv4-header-ipv4-header-format/
+
+https://www.techrepublic.com/article/exploring-the-anatomy-of-a-data-packet/
+
+
+https://www.ibm.com/support/knowledgecenter/en/SSB23S_1.1.0.14/gtpc1/gtpc1mst118.html

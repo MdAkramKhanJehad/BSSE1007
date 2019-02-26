@@ -1,0 +1,7 @@
+https://github.com/hokiespurs/velodyne-copter/wiki/PCAP-format
+
+https://www.slideshare.net/ShravanKumarCEHOSCP/pcap-headers-description
+
+https://wiki.wireshark.org/Development/LibpcapFileFormat#Global_Header
+
+https://github.com/hokiespurs/velodyne-copter/wiki/PCAP-format#pcap-packet-header-16-bytes
