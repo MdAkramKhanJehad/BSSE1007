@@ -71,7 +71,7 @@ int main (int size, char *argv[])
 {
 
 	if(size<3){
-		printf("give ip and port\n");
+		printf("give hostname and port\n");
 		return 0;
 
 	}
