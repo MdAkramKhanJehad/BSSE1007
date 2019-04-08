@@ -1,5 +1,7 @@
 #include<stdio.h>
 #include<string.h>
+#include <time.h>
+#include <unistd.h>
 #include<sys/socket.h>
 #include<stdlib.h>
 #include<errno.h>
@@ -7,7 +9,15 @@
 #include<netinet/ip.h>
 #include<linux/if_ether.h>
 #include<arpa/inet.h>
-#include "GetIPFromHostName.h"
+
+#include "GetIP.h"
+#include "Functions01.h"
+
+
+int 	n1,n2,flg=1,closedPortCounter=0,total ,counter=0;
+char 	ip_value[16];
+
+
 
 struct pseudo_header
 {
@@ -18,112 +28,88 @@ struct pseudo_header
 	unsigned short int tcp_length;
 };
 
+void parseIntFromInput(char arr[]){
 
-unsigned short csum(unsigned short *ptr,int nbytes)
-{
-	unsigned long int sum;
-	unsigned short oddbyte;
-	unsigned short int answer;
-
-	sum=0;
-	while(nbytes>1) {
-		sum+=*ptr++;
-		nbytes-=2;
-	}
-	if(nbytes==1) {
-		oddbyte=0;
-		*((unsigned char*)&oddbyte)=*(unsigned char*)ptr;
-		sum+=oddbyte;
-	}
-
-	sum = (sum>>16)+(sum & 0xffff);
-	sum = sum + (sum>>16);
-	answer=(short)~sum;
-
-	return(answer);
-}
-
-int equals(char addr[], char arg[]){
-
-	int i = 0, flag = 0;
-    while(addr[i] != '\0' && arg[i] != '\0')
-    {
-
-        if(addr[i] != arg[i])
+    int count, sign=0, offset, f=0,i;
+    
+   
+    for( i=0;i<strlen(arr);i++)
+        if((int)arr[i]>=64 && (int)arr[i]<=122)
         {
-            flag = 1;
-            break;
+            flg=0;
         }
-        i++;
+  
+    if (arr[0] == '-') {  
+        sign = -1;
+    }
+    
+    if (sign == -1) 
+        offset = 1;
+    else 
+        offset = 0;
+    
+    for (count = offset; (count<strlen(arr)); count++) {
+        
+        if(arr[count]=='-') break;
+        n1 = n1 * 10 + (arr[count] - 48);
+
+    }
+    
+    if (sign == -1) 
+        n1 = -n1;
+
+    if(arr[count]=='-'){
+      
+        count++;
+        for (;  count<strlen(arr); count++) {
+            n2 = n2 * 10 + (arr[count] - 48);
+        }
+
+
     }
 
-
-    if(flag == 0 && addr[i] == '\0' && arg[i] == '\0')
-        return 1;
-    else
-        return 0;
-
-
 }
 
 
-int main (int size, char *argv[])
-{
+void sendAndReceivePacket(char argv[], int portNo, char *portState[], int openNfilteredPort[]){
 
-	if(size<3){
-		printf("give hostname and port\n");
-		return 0;
 
-	}
-	
-	char ip_value[16];
-	int FLAG ;
-	strcpy(ip_value,argv[1]);
+	struct 	sockaddr saddr;
+	int 	i=0, flag=1, one = 1 , saddr_len = sizeof (saddr),SOCK , psize;
+	const int  *val = &one;
+	char	datagram[4096] , source_ip[32] , *data , *pseudogram;
+	struct 	sockaddr_in sin,source, dest;
+	struct 	pseudo_header psh;
 
-	if((int)ip_value[0]>=65){	
-		FLAG = host_to_ip(argv[1],ip_value);
 
-		if(FLAG){
-			printf("Wrong hostname\n");
-			return 0;
 
-		}
-	}
+	if(!checkIfHostnameOrIpIsCorrect(argv,ip_value))
+        exit(1);
 
-	int s = socket (AF_INET, SOCK_RAW, IPPROTO_TCP);
+	//printf("Scan Report for %s\n",ip_value);
 
-	if(s == -1)
-	{
+	SOCK = socket (AF_INET, SOCK_RAW, IPPROTO_TCP);
 
-		perror("Failed to create socket");
+	if(SOCK == -1)
+	{		
+		perror("FAILED to create SOCKET!");
 		exit(1);
 	}
 
-
-	char datagram[4096] , source_ip[32] , *data , *pseudogram;
-
-
+	
 	memset(datagram, 0, 4096);
 
-
 	struct iphdr *iph = (struct iphdr *) datagram;
-
-
 	struct tcphdr *tcph = (struct tcphdr *) (datagram + sizeof (struct iphdr));
-	struct sockaddr_in sin;
-	struct sockaddr_in source;
-	struct sockaddr_in dest;
-	struct pseudo_header psh;
 
 
 	data = datagram + sizeof(struct iphdr) + sizeof(struct tcphdr);
 	strcpy(data , "");
+	
 
-
-
-	strcpy(source_ip , "10.100.100.235");
+	strcpy(source_ip , "192.168.31.136");
 	sin.sin_family = AF_INET;
-	sin.sin_port = htons(atoi(argv[2]));
+	sin.sin_port = htons(portNo);
 	sin.sin_addr.s_addr = inet_addr(ip_value);
 
 
@@ -140,11 +126,11 @@ int main (int size, char *argv[])
 	iph->daddr = sin.sin_addr.s_addr;
 
 
-	iph->check = (csum ((unsigned short *) datagram, iph->tot_len));
+	iph->check = (CalculateCheckSum((unsigned short *) datagram, iph->tot_len));
 
 
 	tcph->source = htons (15111);
-	tcph->dest = htons (atoi(argv[2]));
+	tcph->dest = htons (portNo);
 	tcph->seq = 110;
 	tcph->ack_seq = 110;
 	tcph->doff = 5;
@@ -165,51 +151,42 @@ int main (int size, char *argv[])
 	psh.protocol = IPPROTO_TCP;
 	psh.tcp_length = htons(sizeof(struct tcphdr) + strlen(data) );
 
-	int psize = sizeof(struct pseudo_header) + sizeof(struct tcphdr) + strlen(data);
+	psize = sizeof(struct pseudo_header) + sizeof(struct tcphdr) + strlen(data);
 	pseudogram = malloc(psize);
 
 	memcpy(pseudogram , (char*) &psh , sizeof (struct pseudo_header));
 	memcpy(pseudogram + sizeof(struct pseudo_header) , tcph , sizeof(struct tcphdr) + strlen(data));
 
-	tcph->check = csum( (unsigned short*) pseudogram , psize);
+	tcph->check = CalculateCheckSum( (unsigned short*) pseudogram , psize);
 
+	
 
-
-	int one = 1;
-	const int *val = &one;
-
-	if (setsockopt (s, IPPROTO_IP, IP_HDRINCL, val, sizeof (one)) < 0)
+	if (setsockopt (SOCK, IPPROTO_IP, IP_HDRINCL, val, sizeof (one)) < 0)
 	{
 		perror("Error setting IP_HDRINCL");
 		exit(0);
 	}
 
 
-	if (sendto (s, datagram, iph->tot_len ,	0, (struct sockaddr *) &sin, sizeof (sin)) < 0)
+	if (sendto (SOCK, datagram, iph->tot_len ,	0, (struct sockaddr *) &sin, sizeof (sin)) < 0)
 	{
 		perror("sendto failed");
+		exit(0);
 
 	}
 
-	else
-	{
-		printf ("Packet Send. Length : %d \n" , iph->tot_len);
-	}
 
-
-	struct sockaddr saddr;
-	int saddr_len = sizeof (saddr);
-	int i=0,flag=1;
 	while(i<5){
 
+		
+
 		memset (datagram, 0, 4096);
-		int rcv =recv(s,datagram,4096,0);
+		int rcv =recv(SOCK,datagram,4096,0);
 		if(rcv<0)
 		{
 			printf("error in reading recv function\n");
-			return -1;
+			exit(1);
 		}
-
 
 		struct iphdr *ip = (struct iphdr *)(datagram );
 
@@ -225,35 +202,158 @@ int main (int size, char *argv[])
 
 
 		if((unsigned int)ip->protocol==6){
-
-
-			if(equals(inet_ntoa(source.sin_addr),ip_value)){
-				flag =0;
-
-				printf("\nTCP header Flags:\n\tSYN: %d\n",tcp->syn);
-				printf("\tRST: %d\n",tcp->rst);
-				printf("\tPSH: %d\n",tcp->psh);
-				printf("\tACK: %d\n",tcp->ack);
-				printf("\tURG: %d\n",tcp->urg);
-				if(tcp->rst) printf("\n\tThis port is closed!\n");
-				else
-				{
-					printf("\n\tTHIS PORT IS OPEN!!!!\n");
-				}
 				
+				if(isEqual(inet_ntoa(source.sin_addr),ip_value)){
+					
+					flag =0;
+					
 
-				break;
-			}
+					if(tcp->syn && tcp->ack){
+						if(portNo==519)
+							printf("519 ok\n");
 
-			if(tcp->rst) printf("This port is closed!\n");
+						portState[counter] = "open";
+						openNfilteredPort[counter] = portNo;
+						counter++;
+					
+					}
+
+					
+					if(tcp->rst && tcp->ack) closedPortCounter++;
+					
+					break;
+				
+				}
 
 		}
-
+		
 		i++;
+	
 	}
 
-	if(flag) printf("This is filtered port\n");
+	if(flag){
+		
+		portState[counter]="filtered";
+		openNfilteredPort[counter] = portNo;
+		counter++;
 
+	}
+	
+	
+
+}
+
+int main (int size, char *argv[]){
+
+
+	int i, total, arr[50000];
+		
+	
+	if(size>2)	printWelcomeNote();
+
+	if(size==1){
+		printHowToScan();
+		return 0;
+	}
+	else if(size==2){
+        
+		if(!isGivenTwoCorrectInput(argv[1]))
+			return 0;
+	}
+	else if(size==3){
+		if(!isGivenThreeCorrectInput(argv[2]))
+			return 0;
+		//send ICPM packet();
+
+	}
+	else if(size==4){
+		if(!isGivenFourCorrectInput(argv[2], argv[3]))
+			return 0;
+
+		if(isEqual(argv[3],"-A")){
+			//Do the subnetting for ip;
+		}
+		else if(isEqual(argv[3],"-F")){
+
+			total=35;
+			initializeForFastScan(arr);
+
+		}
+		else if(isEqual(argv[3],"-D")){
+		
+			total = 50000;
+			initializeForDefaultScan(arr);
+
+		}
+		else{
+			printf("Type \"./akMap -h \"for Help\n");
+			return 0;
+		}
+
+	}
+	else if(size==5){
+		
+		if(!isGivenFiveCorrectInput(argv[2],argv[3]))
+			return 0;
+		
+		parseIntFromInput(argv[4]);
+
+		if(isEqual(argv[3],"-p")){
+			
+			if(!flg){
+				
+				printf("Type \"./akMap -h \"for Help\n");
+				return 0;
+
+			}
+			else{	
+				
+				if(n2<n1){
+					printf("\nYour port range %d-%d is backwards. Did you mean %d-%d?\nQUITTING!\n\n",n1,n2,n2,n1);
+					return 0;
+				
+				}			
+				else{
+				
+					total =n2-n1+1;
+					
+					for(int x=0;x<total;x++,n1++)
+						arr[x]=n1;
+
+				}
+			
+			}
+
+		}
+		else {
+
+		
+			total=1;
+			arr[0]=n1;
+			
+		}
+
+
+	}
+	else{
+
+		printf("Type \"./akMap -h \"for Help\n");
+		return 0;
+
+	}
+
+	
+
+	char *portState[total];
+	int openAndFilteredPorts[total];
+
+	
+	for(i = 0; i<total ; i++)
+		sendAndReceivePacket(argv[1], arr[i], portState, openAndFilteredPorts);
+
+	PrintFinalInfo(counter, openAndFilteredPorts, portState, closedPortCounter, ip_value);
 
 	return 0;
 }
+
+
