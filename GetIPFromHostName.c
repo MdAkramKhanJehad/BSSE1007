@@ -5,7 +5,7 @@
 #include <errno.h>
 #include <netdb.h> 
 #include <arpa/inet.h>
-
+//hahahahahahahaahah
 int hostname_resolver(char * hostname , char* ip) 
 {   
     struct hostent *host;     
