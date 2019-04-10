@@ -27,4 +27,6 @@ void initializeForDefaultScan(int arr[]);
 
 void PrintFinalInfo(int count, int openAndFiltered[], char *state[], int closedCount, char ip_value[]);
 
+
+
 #endif // FUNCTIONS01_H_INCLUDED

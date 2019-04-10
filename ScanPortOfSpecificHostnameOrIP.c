@@ -1,7 +1,7 @@
 #include<stdio.h>
 #include<string.h>
-#include <time.h>
-#include <unistd.h>
+#include<time.h>
+#include<unistd.h>
 #include<sys/socket.h>
 #include<stdlib.h>
 #include<errno.h>
@@ -174,12 +174,15 @@ void sendAndReceivePacket(char argv[], int portNo, char *portState[], int openNf
 		exit(0);
 
 	}
-
-
-	while(i<5){
-
-		
-
+	
+	time_t startTime = time(NULL);
+	time_t endtime = startTime + 1;
+	int co=0;
+	
+	while(time(NULL)<=endtime){
+		co++;
+	
+		//printf("ctime: %ld\t ftime: %ld\n", time(NULL),endtime);
 		memset (datagram, 0, 4096);
 		int rcv =recv(SOCK,datagram,4096,0);
 		if(rcv<0)
@@ -190,7 +193,6 @@ void sendAndReceivePacket(char argv[], int portNo, char *portState[], int openNf
 
 		struct iphdr *ip = (struct iphdr *)(datagram );
 
-
 		memset(&source, 0, sizeof(source));
 		source.sin_addr.s_addr = ip->saddr;
 		memset(&dest, 0, sizeof(dest));
@@ -200,14 +202,13 @@ void sendAndReceivePacket(char argv[], int portNo, char *portState[], int openNf
 
 		struct tcphdr *tcp=(struct tcphdr*)(datagram + iphdrlen);
 
-
+	
 		if((unsigned int)ip->protocol==6){
 				
 				if(isEqual(inet_ntoa(source.sin_addr),ip_value)){
 					
 					flag =0;
 					
-
 					if(tcp->syn && tcp->ack){
 						if(portNo==519)
 							printf("519 ok\n");
@@ -215,21 +216,25 @@ void sendAndReceivePacket(char argv[], int portNo, char *portState[], int openNf
 						portState[counter] = "open";
 						openNfilteredPort[counter] = portNo;
 						counter++;
+						break;
 					
 					}
 
 					
-					if(tcp->rst && tcp->ack) closedPortCounter++;
+					else if(tcp->rst && tcp->ack){
+						closedPortCounter++;
 					
-					break;
+						break;
+					}
 				
 				}
 
 		}
-		
-		i++;
-	
+		//printf("in while ------- ctime: %ld\t ftime: %ld\n", time(NULL),endtime);
+
 	}
+
+	//printf("-------after while %ld--------\n",time(NULL));
 
 	if(flag){
 		
@@ -239,13 +244,12 @@ void sendAndReceivePacket(char argv[], int portNo, char *portState[], int openNf
 
 	}
 	
-	
+	//printf("-------after flag %ld--------\n",time(NULL));
 
 }
 
 int main (int size, char *argv[]){
-
-
+	
 	int i, total, arr[50000];
 		
 	
@@ -349,10 +353,14 @@ int main (int size, char *argv[]){
 
 	
 	for(i = 0; i<total ; i++)
+	{
+		//printf("------------stime: %ld-----------------\n",time(NULL));
 		sendAndReceivePacket(argv[1], arr[i], portState, openAndFilteredPorts);
+		//printf("-------------etime: %ld-----------------\n",time(NULL));
+	}
 
 	PrintFinalInfo(counter, openAndFilteredPorts, portState, closedPortCounter, ip_value);
-
+	printWelcomeNote();
 	return 0;
 }
 

@@ -64,6 +64,7 @@ void printHowToScan(){
 
 }
 
+
 int checkIfHostnameOrIpIsCorrect(char argv[], char ip_value[]){
 
     strcpy(ip_value,argv);
@@ -153,6 +154,8 @@ int isGivenFiveCorrectInput( char argv2[], char argv3[]){
 char * getServiceName(int portNo){
 	if((portNo==20)|| (portNo==21))
 		return "FTP";
+	else if(portNo==7)
+		return "ECHO";
 	else if(portNo==22)
 		return "SSH";
 	else if(portNo==23)
@@ -167,6 +170,8 @@ char * getServiceName(int portNo){
 		return "TFTP";
 	else if(portNo==80)
 		return "HTTP";
+	else if(portNo==109)
+		return "POP2";
 	else if(portNo==110)
 		return "POP3";
 	else if(portNo==123)
@@ -246,11 +251,12 @@ void PrintFinalInfo(int count, int openAndFiltered[], char *state[], int closedC
 			printf("%d Ports are closed.\n",closedCount);
 	}
 
-	printf("\n PORT     STATE     SERVICE\n");
+	if(count)	printf("\n  PORT      STATE     SERVICE\n");
 
 	for(int i=0 ; i<count ; i++){
-		printf("%d    %s    %s\n",openAndFiltered[i],state[i],getServiceName(openAndFiltered[i]));
+		printf(" %5d%12s%10s\n",openAndFiltered[i],state[i],getServiceName(openAndFiltered[i]));
 	}
 
 
 } 
+
